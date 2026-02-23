@@ -1,0 +1,50 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["reservation"]
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  REJECTED
+  WAITLISTED
+
+  @@schema("reservation")
+}
+
+model Reservation {
+  id           String            @id @default(cuid())
+  userId       String
+  restaurantId String
+  reservedAt   DateTime
+  guests       Int
+  status       ReservationStatus @default(PENDING)
+  contactPhone String?
+
+  tableId      String?
+  durationMins Int               @default(15)
+
+  confirmedAt  DateTime?
+  confirmedBy  String?
+
+  checkedOutAt DateTime?
+  checkedOutBy String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([restaurantId])
+  @@index([tableId])
+  @@index([confirmedBy])
+  @@index([checkedOutAt])
+  @@index([checkedOutBy])
+  @@schema("reservation")
+}

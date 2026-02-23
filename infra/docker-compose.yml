@@ -1,0 +1,138 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: restaurant_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: restaurant_platform
+    ports:
+      - "5432:5432"
+    volumes:
+      - restaurant_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d restaurant_platform"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      
+
+  identity:
+    build:
+      context: ../services/identity
+      dockerfile: Dockerfile
+    container_name: identity_service
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/restaurant_platform?schema=identity
+      JWT_ACCESS_SECRET: change_me_access
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_SECRET: change_me_refresh
+      JWT_REFRESH_EXPIRES_IN: 7d
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  restaurant:
+    build:
+      context: ../services/restaurant
+      dockerfile: Dockerfile
+    container_name: restaurant_service
+    environment:
+      NODE_ENV: production
+      PORT: 3003
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/restaurant_platform?schema=restaurant
+      JWT_ACCESS_SECRET: change_me_access
+      JWT_ACCESS_EXPIRES_IN: 15m
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  table:
+    build:
+      context: ../services/table
+      dockerfile: Dockerfile
+    container_name: table_service
+    environment:
+      NODE_ENV: production
+      PORT: 3004
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/restaurant_platform?schema=table
+      JWT_ACCESS_SECRET: change_me_access
+      JWT_ACCESS_EXPIRES_IN: 15m    
+    ports:
+      - "3004:3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  reservation:
+    build:
+      context: ../services/reservation
+      dockerfile: Dockerfile
+    container_name: reservation_service
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/restaurant_platform?schema=reservation
+
+      # microservice URLs inside docker network
+      IDENTITY_SERVICE_URL: http://identity:3001
+      RESTAURANT_SERVICE_URL: http://restaurant:3003
+      TABLE_SERVICE_URL: http://table:3004
+      JWT_ACCESS_SECRET: change_me_access
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_SECRET: change_me_refresh
+      JWT_REFRESH_EXPIRES_IN: 7d
+
+      APP_TZ_OFFSET: "+05:30"
+      
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      identity:
+        condition: service_started
+      restaurant:
+        condition: service_started
+      table:
+        condition: service_started
+
+  gateway:
+    build:
+      context: ../services/gateway
+      dockerfile: Dockerfile
+    container_name: gateway_service
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+
+      # route targets inside docker network
+      IDENTITY_URL: http://identity:3001
+      RESERVATION_URL: http://reservation:3002
+      RESTAURANT_URL: http://restaurant:3003
+      TABLE_URL: http://table:3004
+
+      IDENTITY_SERVICE_URL: http://identity:3001
+      RESERVATION_SERVICE_URL: http://reservation:3002
+      RESTAURANT_SERVICE_URL: http://restaurant:3003
+      TABLE_SERVICE_URL: http://table:3004
+    ports:
+      - "3000:3000"
+    depends_on:
+      identity:
+        condition: service_started
+      reservation:
+        condition: service_started
+      restaurant:
+        condition: service_started
+      table:
+        condition: service_started
+
+volumes:
+  restaurant_pg:
