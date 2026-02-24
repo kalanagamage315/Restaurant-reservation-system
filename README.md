@@ -1,6 +1,6 @@
 # 🍽️ Restaurant Reservation System
 
-A full-stack, microservices-based restaurant reservation platform. Customers can browse restaurants, check table availability, and make reservations. Staff and Admins can manage, confirm, and check out reservations via a dedicated dashboard.
+A full-stack, microservices-based restaurant reservation platform built with a modern dark-themed UI. Customers can browse restaurants, check table availability, and make reservations — validated against each restaurant's opening hours and open days. Staff and Admins can manage, confirm, and check out reservations via a dedicated dashboard.
 
 ---
 
@@ -211,7 +211,7 @@ JWT_ACCESS_SECRET=change_me_access
 ### For Customers
 - 🔍 Browse active restaurants
 - 📅 Check table availability by date and guest count
-- 📝 Create reservations (up to 30 days in advance)
+- 📝 Create reservations (up to 30 days in advance) — validated against restaurant opening hours and open days
 - ❌ Cancel pending reservations
 - 👤 View and edit profile
 
@@ -221,6 +221,7 @@ JWT_ACCESS_SECRET=change_me_access
 - 🆓 **Check out** (free) a confirmed reservation when the customer leaves
 - 📊 View confirmed reservations filtered by date and table
 - 🏪 Manage restaurants and tables (Admin only)
+- 🕐 Set restaurant opening hours (`openTime`, `closeTime`) and open days per restaurant (Admin only)
 
 ### Table Assignment Logic
 A table can only be assigned to a new reservation if **all existing CONFIRMED reservations on that table have been checked out**. This prevents double-booking without needing time-window math.
@@ -266,9 +267,11 @@ The gateway routes requests based on the first path segment:
 #### Restaurants
 | Method | Path | Role | Description |
 |---|---|---|---|
-| `GET` | `/restaurants` | Public | List all restaurants |
+| `GET` | `/restaurants` | Public | List all active restaurants |
+| `GET` | `/restaurants/:id` | Public | Get restaurant by ID (incl. hours) |
+| `GET` | `/restaurants/admin/all` | Admin | List all restaurants (incl. inactive & hours) |
 | `POST` | `/restaurants` | Admin | Create a restaurant |
-| `PATCH` | `/restaurants/:id` | Admin | Update a restaurant |
+| `PATCH` | `/restaurants/:id` | Admin | Update a restaurant (incl. hours & open days) |
 
 #### Tables
 | Method | Path | Role | Description |
@@ -286,7 +289,7 @@ Each microservice owns its own PostgreSQL schema:
 | Schema | Key Models |
 |---|---|
 | `identity` | `User` (id, email, fullName, role, restaurantId) |
-| `restaurant` | `Restaurant` (id, name, isActive) |
+| `restaurant` | `Restaurant` (id, name, isActive, openTime, closeTime, openDays) |
 | `table` | `DiningTable` (id, restaurantId, tableNumber, capacity, isActive) |
 | `reservation` | `Reservation` (id, userId, restaurantId, tableId, status, reservedAt, checkedOutAt, ...) |
 
